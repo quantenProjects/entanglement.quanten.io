@@ -1,0 +1,198 @@
+<!doctype html>
+
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+
+  <title>quantenIO</title>
+  <meta name="description" content="Quantum entanglement">
+  <meta name="author" content="quanten">
+
+  <link rel="stylesheet" href="styles.css">
+
+</head>
+
+<body style="background:#111;margin: 0rem;">
+<canvas id="canvas" style="position: absolute; display: block; top:0; left:0"></canvas>
+<p style="color:#aaa; bottom:0%; position:fixed;">Thanks to @dudleystorey for the <a href="https://codepen.io/dudleystorey/pen/NbNjjX/">base code</a></p>
+</body>
+
+
+<script>
+
+
+/**
+ * Converts an HSV color value to RGB. Conversion formula
+ * adapted from http://en.wikipedia.org/wiki/HSV_color_space.
+ * Assumes h, s, and v are contained in the set [0, 1] and
+ * returns r, g, and b in the set [0, 255].
+ *
+ * @param   Number  h       The hue
+ * @param   Number  s       The saturation
+ * @param   Number  v       The value
+ * @return  Array           The RGB representation
+ */
+function hsvToRgb(h, s, v){
+    var r, g, b;
+
+    var i = Math.floor(h * 6);
+    var f = h * 6 - i;
+    var p = v * (1 - s);
+    var q = v * (1 - f * s);
+    var t = v * (1 - (1 - f) * s);
+
+    switch(i % 6){
+        case 0: r = v, g = t, b = p; break;
+        case 1: r = q, g = v, b = p; break;
+        case 2: r = p, g = v, b = t; break;
+        case 3: r = p, g = q, b = v; break;
+        case 4: r = t, g = p, b = v; break;
+        case 5: r = v, g = p, b = q; break;
+    }
+
+    return [r * 255, g * 255, b * 255];
+}
+
+let resizeReset = function() {
+	w = canvasBody.width = window.innerWidth;
+	h = canvasBody.height = window.innerHeight;
+}
+
+const opts = { 
+	particleColor: "rgb(200,200,200)",
+	lineColor: "rgb(200,200,200)",
+	particleAmount: 20,
+	defaultSpeed: 1,
+	variantSpeed: 2,
+	defaultRadius: 2,
+	variantRadius: 2,
+	minSpeed: 0.5,
+	linkRadius: 200,
+	homeFlyFactor: 0.001,
+};
+
+window.addEventListener("resize", function(){
+	deBouncer();
+});
+
+let deBouncer = function() {
+    clearTimeout(tid);
+    tid = setTimeout(function() {
+        resizeReset();
+    }, delay);
+};
+
+let checkDistance = function(x1, y1, x2, y2){ 
+	return Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
+};
+
+let linkPoints = function(point1, point2){ 
+	//for (let i = 0; i < hubs.length; i++) {
+		let distance = checkDistance(point1.x, point1.y, point2.x, point2.y);
+		let opacity = 1 - distance / opts.linkRadius;
+		if (opacity > 0) { 
+			drawArea.lineWidth = 0.5;
+			drawArea.strokeStyle = `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${opacity})`;
+			drawArea.beginPath();
+			drawArea.moveTo(point1.x, point1.y);
+			//drawArea.lineTo(hubs[i].x, hubs[i].y);
+			drawArea.lineTo(point2.x, point2.y);
+			drawArea.closePath();
+			drawArea.stroke();
+		}
+	//}
+}
+
+Particle = function(xPos, yPos){ 
+	this.x = Math.random() * w; 
+	this.y = Math.random() * h;
+	this.xDefaultPos = xPos;
+	this.yDefaultPos = yPos;
+	this.xV = 0;//opts.defaultSpeed + Math.random() * opts.variantSpeed;
+	this.yV = 0;//opts.defaultSpeed + Math.random() * opts.variantSpeed;
+	this.xVV = 1;
+	this.yVV = 1;
+	this.color = "hsl(" + Math.random()*360 + "," + "60%" + "," + "80%"+ ")"; //hsvToRgb(Math.random()*255,0.5,1);
+	this.radius = opts.defaultRadius + Math.random() * opts. variantRadius; 
+	this.v = {
+		x: Math.cos(this.directionAngle) * this.speed,
+		y: Math.sin(this.directionAngle) * this.speed
+	};
+	this.update = function(){ 
+
+		this.border(); 
+		this.xVV += Math.pow(this.xDefaultPos - this.x,1) * opts.homeFlyFactor + (Math.random()-0.5) * opts.variantSpeed;
+		this.yVV += Math.pow(this.yDefaultPos - this.y,1) * opts.homeFlyFactor + (Math.random()-0.5) * opts.variantSpeed;
+		this.xVV *= 0.92;
+		this.yVV *= 0.92;
+		this.xV += this.xVV*0.5;
+		this.yV += this.yVV*0.5;
+		this.xV *= 0.95;
+		this.yV *= 0.95;
+		
+		this.x += this.xV*0.1; 
+		this.y += this.yV*0.1; 
+	};
+	this.border = function(){ 
+		if (this.x >= w || this.x <= 0) { 
+			//this.xV *= -1;
+			this.xV = 0;
+		}
+		if (this.y >= h || this.y <= 0) {
+			//this.yV *= -1;
+			this.yV = 0;
+		}
+		if (this.x > w) { this.x = w; this.xVV = 0;}
+		if (this.y > h) this.y = h;
+		if (this.x < 0) { this.x = 0; this.xVV = 0;}
+		if (this.y < 0) this.y = 0;	
+	};
+	this.draw = function(){ 
+		drawArea.beginPath();
+		drawArea.arc(this.x, this.y, this.radius, 0, Math.PI*2);
+		drawArea.closePath();
+		drawArea.fillStyle = this.color;
+		drawArea.fill();
+	};
+};
+
+function setup(){ 
+	particles = [];
+	resizeReset();
+	for (let i = 0; i < opts.particleAmount; i++){
+		particles.push( new Particle((i+1)*(w/(opts.particleAmount+2)),h/2) );
+	}
+	particles[0].radius = opts.defaultRadius*5;
+	particles[opts.particleAmount-1].radius = opts.defaultRadius*5;
+	window.requestAnimationFrame(loop);
+}
+
+function loop(){ 
+	window.requestAnimationFrame(loop);
+	drawArea.clearRect(0,0,w,h);
+	particles[0].color = "hsl(" + colorHue+ ",100%,50%)";
+	particles[opts.particleAmount-1].color = "hsl(" + colorHue+ ",100%,50%)";
+	colorHue += 0.8;
+	if (colorHue>360) colorHue = 0;
+	for (let i = 0; i < particles.length; i++){
+		particles[i].update();
+	}
+	for (let i = 0; i < particles.length-1; i++){
+		linkPoints(particles[i], particles[i+1]);
+	}
+        for (let i = 0; i < particles.length; i++){
+		particles[i].draw();
+        }
+
+}
+
+const canvasBody = document.getElementById("canvas"),
+drawArea = canvasBody.getContext("2d");
+let delay = 200, tid,
+rgb = opts.lineColor.match(/\d+/g);
+colorHue = 0;
+resizeReset();
+setup();
+</script>
+</html>
+
